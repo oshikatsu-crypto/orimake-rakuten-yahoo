@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>注文情報管理（楽天・Yahoo!）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --bg:#faf9f6; --card:#fff; --line:#e7e3dc; --line2:#efece6; --text:#1f2421; --sub:#6b6f6c;
+  --green:#1d6b52; --green-bg:#e6f1ec; --orange:#e08a1e; --orange-bg:#fff6ea;
+  --red:#b8433a; --red-bg:#fdf1ef; --pink-bg:#fff7f5; --pink-line:#f2d2c9;
+  --blue:#2f5f9e; --purple:#6a4aa0; --purple-bg:#f6f3fb;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;font-size:14px;line-height:1.6}
+/* ヘッダー（orimake と同じ見た目） */
+header{display:flex;align-items:center;gap:12px;padding:12px 26px;border-bottom:1px solid var(--line);background:#fbfaf7}
+.logo{width:40px;height:40px;border-radius:50%;background:#3a3a3a;display:grid;place-items:center;border:3px solid var(--orange)}
+.logo span{color:var(--orange);font-weight:900;font-size:18px}
+.brand{font-size:21px;font-weight:700}
+.badge-studio{border:1px solid var(--line);border-radius:999px;padding:1px 11px;font-size:12px;letter-spacing:.08em;color:#555;background:#fff}
+nav{margin-left:auto;display:flex;gap:6px;align-items:center}
+nav .on{background:var(--green-bg);border:1px solid #cfe3da;color:var(--green);font-weight:700;border-radius:8px;padding:9px 16px}
+nav button{border:none;background:none;color:#444;font-weight:700;padding:9px 12px}
+nav button:hover{background:#f0ede7}
+main{max-width:1860px;margin:0 auto;padding:30px 26px 60px}
+h1{font-size:30px;margin:0 0 6px;font-weight:700}
+.lead{color:#555;font-size:16px;margin:0 0 30px;padding-bottom:28px;border-bottom:1px solid var(--line)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+.card h2{font-size:14px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.muted{color:var(--sub);font-size:12px}
+button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:7px;padding:7px 13px;cursor:pointer;color:var(--text);display:inline-flex;align-items:center;gap:6px}
+button:hover{background:#f5f3ef}
+button.primary{background:var(--green);border-color:var(--green);color:#fff;font-weight:700}
+button.primary:hover{background:#185c46}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.small{padding:3px 10px;font-size:12px}
+input[type=number],select{font:inherit;border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:#fff}
+/* ドロップエリア */
+.drop{border:2px dashed #d8d4cc;border-radius:12px;background:#fff;padding:60px 20px 64px;text-align:center;cursor:pointer;transition:.15s}
+.drop:hover,.drop.over{border-color:var(--green);background:#fbfdfc}
+.drop svg{width:58px;height:58px;color:var(--green)}
+.drop b{display:block;font-size:19px;margin:14px 0 12px}
+.drop .muted{font-size:14px;line-height:1.8}
+.hint{margin-top:14px;text-align:center;font-size:13px;color:var(--orange)}
+.hint a{color:var(--green);font-weight:700;cursor:pointer;text-decoration:underline}
+/* ダウンロード手順 */
+.howto{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+.howto-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 20px;font-size:13px}
+.howto-h{font-weight:700;font-size:16px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.howto-h .mall{font-size:18px;padding:3px 14px;border-radius:6px}
+.howto ol{margin:0;padding-left:20px;line-height:1.9}
+.howto li{margin-bottom:4px}
+.howto-t{width:auto;margin:6px 0 4px;border:1px solid var(--line2)}
+.howto-t th,.howto-t td{padding:4px 12px;font-size:12px}
+.howto-t th{background:#f6f4f0;text-align:left}
+@media (max-width:900px){.howto{grid-template-columns:1fr}}
+/* 集計 */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+.kpi .l{font-size:12px;color:#555}
+.kpi .v{font-size:28px;font-weight:700}
+.kpi .v small{font-size:12px;font-weight:400;color:var(--sub);margin-left:3px}
+.v.g{color:var(--green)} .v.o{color:var(--orange)} .v.p{color:var(--purple)}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bar .sp{flex:1}
+.fileinfo{font-size:13px}
+.mall{display:inline-block;border-radius:4px;padding:0 6px;font-size:11px;font-weight:700;white-space:nowrap}
+.mall.r{background:#fdecec;color:#bf0000} .mall.y{background:#fff0f0;color:#ff0033;border:1px solid #ffd0d6}
+/* セクション */
+.sec-gift,.sec-name{overflow-x:auto}
+.sec-gift{background:var(--pink-bg);border-color:var(--pink-line)}
+.sec-name{background:var(--purple-bg);border-color:#ddd3ef}
+.sec-warn{background:var(--red-bg);border-color:#efc5bf}
+.count{background:var(--orange);color:#fff;border-radius:999px;padding:0 8px;font-size:12px}
+.count.p{background:var(--purple)}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line2);text-align:left;vertical-align:top;font-size:13px}
+th{background:#f6f4f0;font-size:12px;color:#555;font-weight:700;white-space:nowrap}
+td.num{text-align:center}
+.mono{font-family:Consolas,"Courier New",monospace;font-size:12px}
+.fname{background:#f6f4f0;border:1px solid var(--line2);border-radius:4px;padding:1px 6px;display:inline-block;font-family:Consolas,monospace;font-size:12px;word-break:break-all;margin:1px 0}
+.s{font-size:12px;white-space:nowrap;font-weight:700}
+.s.ok{color:var(--green)} .s.est{color:var(--blue)} .s.ng{color:var(--red)} .s.warn{color:var(--orange)} .s.cus{color:var(--purple)} .s.plain{color:#8a8a8a}
+.wtable td,.wtable th{padding:6px 10px;font-size:12px}
+.wtable .title{max-width:340px}
+.wtable td:nth-child(4),.wtable td:nth-child(5){white-space:nowrap}
+.title{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#5b6a8a}
+.wchips{background:#fff;border:1px solid #f0d6d2;border-radius:7px;padding:8px 10px;line-height:2}
+.wchip{display:inline-block;border:1px solid #efc5bf;background:var(--red-bg);color:var(--red);border-radius:5px;padding:0 7px;font-size:12px;margin:0 4px 0 0;font-family:Consolas,monospace;cursor:default}
+.wchip.fix{background:#eef3fb;border-color:#c9d8ef;color:var(--blue)}
+.wchip small{font-family:inherit;opacity:.75}
+.wlabel{font-size:12px;font-weight:700;color:#7a4a44;margin:6px 0 4px}
+.tag{font-size:11px;border-radius:4px;padding:0 6px;background:#f0ece6;color:#555;white-space:nowrap;display:inline-block;margin:1px 2px 1px 0}
+.tag.o{background:var(--orange-bg);color:var(--orange);border:1px solid #f3d6ae}
+.nm{white-space:pre-wrap;font-weight:700;color:var(--purple)}
+.hidden{display:none!important}
+.progress{height:6px;background:#eee;border-radius:3px;overflow:hidden;width:220px}
+.progress div{height:100%;background:var(--green);width:0}
+/* 設定（右上の「設定」から開く） */
+dialog{border:none;border-radius:12px;padding:0;width:min(860px,94vw);max-height:92vh;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.rform{display:grid;grid-template-columns:80px 1fr;gap:8px 10px;align-items:center;font-size:13px;margin-top:6px}
+.rform>label{font-weight:700;color:#555}
+.rform input[type=text]{font:inherit;border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+.chk{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.chk label{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
+dialog::backdrop{background:rgba(0,0,0,.3)}
+.dlg-h{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700;font-size:16px}
+.dlg-b{padding:6px 18px 18px}
+.row{padding:14px 0;border-bottom:1px solid var(--line2)}
+.row:last-child{border-bottom:none}
+.row .t{font-weight:700;margin-bottom:4px}
+.row .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.st.ok{color:var(--green)} .st.ng{color:var(--orange)}
+#chooser{display:none;margin-top:10px;background:#faf9f6;border-radius:8px;padding:10px}
+#chooser table{font-size:12px}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)} main{padding:18px 14px} nav .on{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><span>M</span></div><span class="brand">orimake</span><span class="badge-studio">STUDIO</span>
+  <nav>
+    <span class="on">📋 注文・出荷（楽天・Yahoo!）</span>
+    <button onclick="openSettings()">⚙ 設定</button>
+  </nav>
+</header>
+<main>
+  <h1>注文情報管理</h1>
+  <p class="lead">楽天・Yahoo!の未出荷注文CSVを取り込み、SKUマスタと突合してDTF印刷用画像をZIP形式で一括出力します。</p>
+
+  <!-- 取込 -->
+  <section id="dropWrap">
+    <div class="drop" id="drop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16l-4-4-4 4"/><path d="M12 12v9"/><path d="M20.4 18.4A5 5 0 0 0 18 9h-1.3A8 8 0 1 0 3 16.3"/></svg>
+      <b>楽天・Yahoo!の未出荷注文CSVをドラッグ＆ドロップ、またはクリックして選択</b>
+      <div class="muted">楽天の未出荷CSVと、Yahoo!の注文情報CSV・商品情報CSVをまとめて読み込めます（Shift_JIS / UTF-8 両対応）。<br>個人情報や注文データはDBへ保存されず、メモリ上で安全に即時処理されます。</div>
+    </div>
+    <input type="file" id="fOrders" accept=".csv,.txt" multiple class="hidden">
+    <div class="hint hidden" id="setupHint"></div>
+
+    <!-- 未出荷CSVのダウンロード手順 -->
+    <div class="howto">
+      <div class="howto-card">
+        <div class="howto-h"><span class="mall r">楽天</span> 未出荷注文CSVのダウンロード手順</div>
+        <ol>
+          <li>RMSで「<b>受注・決済管理</b>」→「<b>1 受注管理</b>」→「<b>データダウンロード</b>」→「<b>通常購入データ</b>」を開く</li>
+          <li>データの作成画面で、次のとおり設定する
+            <table class="howto-t">
+              <tr><th>期間指定</th><td>注文確定日</td></tr>
+              <tr><th>期間</th><td>過去30日から今日まで</td></tr>
+              <tr><th>ステータス</th><td>発送待ち</td></tr>
+              <tr><th>出力テンプレート</th><td>全カラムダウンロード用</td></tr>
+            </table>
+          </li>
+          <li>「<b>データを作成する</b>」を押す</li>
+          <li>処理が完了したら、ユーザー名とパスワードを入力 → 自動でダウンロードされる</li>
+        </ol>
+      </div>
+      <div class="howto-card">
+        <div class="howto-h"><span class="mall y">Yahoo!</span> 未出荷注文CSVのダウンロード手順</div>
+        <ol>
+          <li>ストアクリエイターProの「<b>注文処理状況</b>」→「<b>出荷処理中（件数）</b>」を開く</li>
+          <li>未出荷の注文を<b>全選択</b>する</li>
+          <li>「<b>注文データダウンロード</b>」を押す</li>
+          <li>次の<b>2つ</b>をダウンロードする
+            <table class="howto-t">
+              <tr><th>①</th><td>未出荷注文レポート（<b>注文情報</b>）</td></tr>
+              <tr><th>②</th><td>未出荷注文レポート（<b>商品情報</b>）</td></tr>
+            </table>
+          </li>
+        </ol>
+        <div class="muted">※ 2つとも読み込んでください（注文日時・ギフトは注文情報、カラー・サイズ・プリント面・名入れは商品情報に入っています）</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="result" class="hidden">
+    <div class="kpis">
+      <div class="kpi"><div class="l">対象注文行数</div><div class="v" id="kOrders"></div></div>
+      <div class="kpi"><div class="l">印刷枚数合計（数量展開）</div><div class="v g" id="kZip"></div></div>
+      <div class="kpi"><div class="l">画像なし</div><div class="v o" id="kWarn"></div></div>
+      <div class="kpi"><div class="l">ギフト注文</div><div class="v o" id="kGift"></div></div>
+      <div class="kpi"><div class="l">名入れ・オーダー</div><div class="v p" id="kName"></div></div>
+    </div>
+
+    <div class="card sec-warn hidden" id="noticeCard" style="font-size:13px"></div>
+
+    <div class="card bar">
+      <span class="fileinfo" id="fileChips"></span><span class="sp"></span>
+      <div class="progress hidden" id="prog"><div></div></div>
+      <button onclick="resetOrders()">↻ 別の注文を読み込む</button>
+      <button class="primary" id="btnZip" onclick="downloadZip()">⬇ DTF画像ZIPをダウンロード</button>
+    </div>
+
+    <section class="card sec-gift hidden" id="giftCard">
+      <h2>🎁 ギフト注文一覧（要ラッピング対応） <span class="count" id="giftCount"></span></h2>
+      <table><thead><tr><th>モール</th><th>注文番号</th><th>受取人</th><th>ギフト種別</th><th>メッセージ／備考</th><th>注文日時</th></tr></thead><tbody id="giftBody"></tbody></table>
+    </section>
+
+    <section class="card sec-name hidden" id="nameCard">
+      <h2>✎ 名入れ・オーダー注文一覧 <span class="count p" id="nameCount"></span><span class="muted" style="margin-left:auto;font-weight:400">名入れ内容はZIPに含まれません</span></h2>
+      <table><thead><tr><th>モール</th><th>注文番号</th><th>種別</th><th>SKU / 商品</th><th>数量</th><th>名入れ・指定内容</th></tr></thead><tbody id="nameBody"></tbody></table>
+    </section>
+
+    <section class="card sec-warn hidden" id="warnCard">
+      <h2 style="color:var(--red)">ⓘ 画像なしの注文があります（ZIPには画像が見つかったものだけ含まれます）</h2>
+      <div id="warnList"></div>
+    </section>
+
+    <section class="card">
+      <div class="bar" style="margin-bottom:10px"><h2 style="margin:0">📦 ZIPバンドル対象 DTF画像一覧</h2><span class="sp"></span><span class="muted" id="lineCount"></span></div>
+      <div style="overflow:auto">
+      <table id="lineTable"><thead><tr><th>#</th><th>モール</th><th>SKU</th><th>商品名</th><th>数量</th><th>元DTF画像名</th><th>画像状態</th><th>出力ファイル名プレビュー（連番）</th></tr></thead>
+      <tbody id="lineBody"></tbody></table>
+      </div>
+    </section>
+  </section>
+</main>
+
+<!-- 設定 -->
+<dialog id="settings">
+  <div class="dlg-h">⚙ 設定<span style="flex:1"></span><button class="small" onclick="$('#settings').close()">閉じる</button></div>
+  <div class="dlg-b">
+    <div class="row">
+      <div class="t">DTF画像</div>
+      <div class="st" id="stImages"></div>
+      <div class="acts">
+        <button class="small primary" onclick="$('#fImages').click()">フォルダを取り込む</button>
+        <button class="small" onclick="$('#fImageFiles').click()">画像を追加</button>
+        <button class="small" onclick="exportImagesZip()">フォルダへ書き出し</button>
+        <button class="small" onclick="clearImages()">全削除</button>
+      </div>
+      <input type="file" id="fImages" webkitdirectory directory multiple class="hidden">
+      <input type="file" id="fImageFiles" accept=".png,.jpg,.jpeg" multiple class="hidden">
+      <div class="progress hidden" id="imgProg" style="width:100%;margin-top:8px"><div></div></div>
+    </div>
+    <div class="row" id="regRow">
+      <div class="t">SKUの追加（新商品・画像なしの商品）</div>
+      <div class="rform">
+        <label>SKU</label><div><input type="text" id="rDesign" size="18" placeholder="例: ot-2000" oninput="regPreview()"> <span class="muted">← 色・サイズは付けない</span>
+          <div class="muted" style="margin-top:2px">注文のSKU（例：ot-2000-black-m）の「-black-m」より前の部分だけを入力します。色とサイズは下で選びます。</div></div>
+        <label>画像名</label><div><input type="text" id="rStem" size="30" list="stemList" placeholder="例: ポンコツ" onfocus="fillStemList()" oninput="regPreview()"> <span class="muted">← 取り込んだ画像と同じ名前</span>
+          <div class="muted" style="margin-top:2px">取り込んだDTF画像のファイル名から、末尾の「黒／白」と「.png」を除いた名前を入力します（例：「ポンコツ 黒.png」→ ポンコツ）。名前が一致すると ✔ が付きます。ファイル名をそのまま貼り付けてもOKです。</div></div>
+        <label>カラー</label><div class="chk">
+          <label><input type="checkbox" id="rBlack" onchange="regPreview()"> ブラック</label>
+          <label><input type="checkbox" id="rWhite" onchange="regPreview()"> ホワイト</label>
+          <label><input type="checkbox" id="rOther" onchange="regPreview()"> その他</label>
+          <span id="rOtherBox"><input type="text" id="rOtherCode" size="8" placeholder="色（例: red）" oninput="regPreview()"> <input type="text" id="rOtherImg" size="22" list="imgList2" placeholder="画像名（例: ○○ 赤.png）" oninput="regPreview()"></span>
+        </div>
+        <label>サイズ</label><div><div class="chk">
+          <label><input type="checkbox" name="rSize" value="normal" checked onchange="regPreview()"> S〜3XL</label>
+          <label><input type="checkbox" name="rSize" value="large" onchange="regPreview()"> 4XL〜7XL（[大]画像）</label>
+          <label><input type="checkbox" name="rSize" value="kids" onchange="regPreview()"> キッズ 100〜150（自動で縮小）</label>
+        </div>
+        <div class="muted" style="margin-top:2px">商品にないサイズが範囲に含まれていても問題ありません（例：M〜XLだけの商品で「S〜3XL」にチェック → M〜XLの注文に使われます）。</div></div>
+      </div>
+      <div id="rPreview" style="margin:8px 0;font-size:12px;line-height:1.8"></div>
+      <div class="bar"><button class="small primary" onclick="submitRegister()">登録</button><span class="s ok" id="rMsg"></span><span class="sp"></span>
+        <details style="font-size:12px"><summary>登録済み（<span id="regCount">0</span>）</summary>
+          <div style="max-height:220px;overflow:auto;margin-top:6px"><table><tbody id="regBody"></tbody></table></div></details></div>
+      <datalist id="stemList"></datalist><datalist id="imgList2"></datalist>
+    </div>
+    <div class="row">
+      <div class="t">縮小率</div>
+      <div class="bar">胸プリント（ワンポイント） <input type="number" id="chestPct" min="5" max="100" step="1" style="width:72px" onchange="setChestPct(this.value)"> %
+        <span style="width:16px"></span>キッズサイズ（登録したSKU） <input type="number" id="kidsPct" min="5" max="100" step="1" style="width:72px" onchange="setKidsPct(this.value)"> %</div>
+      <div class="muted">元のDTF画像に対する大きさの割合です（DPIは元画像のまま）。[キッズ]画像がある場合は縮小せずにそちらを使います。</div>
+    </div>
+    <div class="row">
+      <div class="t">📊 Excelでまとめて登録・更新したいとき（商品管理マスタ）</div>
+      <div class="muted" style="margin-bottom:6px;line-height:1.7">新商品をたくさん登録するときは、Excelの商品管理マスタに追記してから「Excelを読み込んで一括更新」を押してください。<br>
+        数件だけなら、上の「SKUの追加」のほうが手軽です。読み込むとマスタ全体がExcelの内容に置き換わります（「SKUの追加」で登録した分はそのまま残ります）。</div>
+      <div class="st" id="stMaster"></div>
+      <div class="acts"><button class="small primary" onclick="$('#fMaster').click()">Excelを読み込んで一括更新</button><button class="small" onclick="clearMaster()">同梱のマスタに戻す</button></div>
+      <input type="file" id="fMaster" accept=".csv,.txt,.tsv,.xlsx,.xlsm,.xls" class="hidden">
+      <div id="chooser">
+        <div style="margin-bottom:8px"><b>列を確認してください</b> <span class="muted" id="chooserName"></span></div>
+        <div class="bar" style="margin-bottom:8px">
+          SKU列 <select id="selSku"></select> DTF画像名列 <select id="selImg"></select>
+          <button class="primary small" onclick="commitMaster()">この列で登録</button>
+          <button class="small" onclick="$('#chooser').style.display='none'">キャンセル</button>
+        </div>
+        <div id="chooserPreview" style="overflow:auto"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="t">Yahoo!旧コード対応表</div>
+      <div class="muted" style="margin-bottom:6px">Yahoo!の旧形式の商品コード（例：20220929hokani）を、SKU・画像名に対応させる表です。「Yahoo旧コード対応表_候補.csv」を読み込みます。</div>
+      <div class="st" id="stLegacy"></div>
+      <div class="acts"><button class="small" onclick="$('#fLegacy').click()">対応表CSVを読み込む</button></div>
+      <input type="file" id="fLegacy" accept=".csv" class="hidden">
+    </div>
+  </div>
+</dialog>
+
+<!-- 同梱データ（任意）：手元で使うときだけ置く。GitHubには上げない（.gitignore） -->
+<script src="data/master.js" onerror="void 0"></script>
+<script src="data/yahoo_legacy.js" onerror="void 0"></script>
+<!-- 業務ロジック → 画像処理 → 保存 → 画面 の順に読み込む -->
+<script src="js/core.js"></script>
+<script src="js/image.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

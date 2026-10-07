@@ -1,0 +1,4 @@
+"OrderId","OrderTime","ShipName","GiftWrapType","GiftWrapPaperType","GiftWrapName","GiftWrapMessage","NeedGiftWrap","SocialGiftType","BuyerComments","ItemId","SubCode","Title","QuantityDetail"
+"20001","2026/01/02 09:00:00","テスト 一子","","","","","0","0","","L1=ot-122-oya&L2=20220929hokani","L1=ot-122-Black-M&L2=w20220929hokanoXXL","L1=ポンコツ tシャツ&L2=ほかに着る服がなかった tシャツ","L1=1&L2=1"
+"20002","2026/01/02 10:00:00","テスト 二子","","","","","0","0","","L1=nt-00001","L1=nt-00001m","L1=名入れ Tシャツ","L1=1"
+"20003","2026/01/02 11:00:00","テスト 三子","ラッピング","","","","1","0","","L1=ot-040-oya","L1=ot-040-Black-L","L1=じぃじ tシャツ","L1=1"
