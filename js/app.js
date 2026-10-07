@@ -95,36 +95,61 @@ function indexImages(entries) {
   state.images = new Map(entries.map(e => [e.name, e]));
   state.finder = C.makeImageFinder(entries);
 }
+// 取り込みの進み具合・エラーを設定画面に表示する
+const imgMsg = (t, ng) => { const el = $('#imgMsg'); el.textContent = t; el.style.color = ng ? 'var(--red)' : ''; };
+const withTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r('timeout'), ms))]);
 // 画像をブラウザ内の保存領域に取り込む。同名は上書き、既存分は残す
 async function importImages(files) {
+  const picked = files.length;
   files = files.filter(f => /\.(png|jpe?g)$/i.test(f.name));
-  if (!files.length) { alert('PNG / JPEG 画像が見つかりませんでした。'); return; }
+  imgMsg(`選択されたファイル：${picked.toLocaleString()}件（うち画像 ${files.length.toLocaleString()}枚）。準備中…`);
+  if (!files.length) { imgMsg('PNG / JPEG 画像が見つかりませんでした。', true); alert('PNG / JPEG 画像が見つかりませんでした。'); return; }
+  const bar = $('#imgProg'); bar.classList.remove('hidden'); bar.firstElementChild.style.width = '0';
   const total = files.reduce((a, f) => a + f.size, 0);
   try {
-    const est = await navigator.storage.estimate();
-    if (est.quota && est.quota - est.usage < total * 1.05) { alert(`ブラウザの保存容量が足りません（必要 約${gb(total)}GB／空き 約${gb(est.quota - est.usage)}GB）。`); return; }
+    const est = await withTimeout(navigator.storage.estimate(), 5000);
+    if (est && est !== 'timeout' && est.quota && est.quota - est.usage < total * 1.05) {
+      const m = `ブラウザの保存容量が足りません（必要 約${gb(total)}GB／空き 約${gb(est.quota - est.usage)}GB）。シークレットウィンドウでは容量が小さいため、通常のウィンドウで開いてください。`;
+      imgMsg(m, true); alert(m); bar.classList.add('hidden'); return;
+    }
   } catch (e) { /* 容量が分からないときはそのまま進める */ }
-  try { if (navigator.storage.persist) await navigator.storage.persist(); } catch (e) { /* 任意 */ }
-  const bar = $('#imgProg'); bar.classList.remove('hidden');
-  let done = 0, batch = [], bytes = 0;
+  try { if (navigator.storage.persist) await withTimeout(navigator.storage.persist(), 5000); } catch (e) { /* 任意 */ }
+  const saved = [], failed = [];
+  let batch = [], bytes = 0;
+  const flush = async () => {
+    await idb.imgPutMany(batch);
+    for (const [name, blob] of batch) saved.push([name, blob.size]);
+    batch = []; bytes = 0;
+    bar.firstElementChild.style.width = ((saved.length + failed.length) / files.length * 100).toFixed(0) + '%';
+    imgMsg(`取り込み中… ${saved.length.toLocaleString()} / ${files.length.toLocaleString()}枚`);
+  };
   try {
     for (const f of files) {
-      batch.push([f.name.normalize('NFC'), f]); bytes += f.size;
-      if (batch.length >= 25 || bytes > 150e6) {
-        await idb.imgPutMany(batch); done += batch.length; batch = []; bytes = 0;
-        bar.firstElementChild.style.width = (done / files.length * 100).toFixed(0) + '%'; $('#stImages').textContent = `取り込み中… ${done} / ${files.length}`;
-      }
+      // 先にファイルを読み込んでから保存する（読めないファイルは理由が分かるように記録する）
+      let blob;
+      try { blob = new Blob([await f.arrayBuffer()], { type: f.type || 'image/png' }); }
+      catch (e) { failed.push(`${f.name}（${e.name}）`); continue; }
+      batch.push([f.name.normalize('NFC'), blob]); bytes += blob.size;
+      if (batch.length >= 25 || bytes > 150e6) await flush();
     }
-    if (batch.length) { await idb.imgPutMany(batch); done += batch.length; }
-  } catch (e) { alert(`取り込みが途中で止まりました（${done}枚まで保存済み）：${e.message}`); }
+    if (batch.length) await flush();
+  } catch (e) {
+    const m = `取り込みが途中で止まりました（${saved.length}枚まで保存済み）：${e.name} ${e.message}`;
+    imgMsg(m, true); alert(m);
+  }
   const idx = new Map([...state.images.values()].map(e => [e.name, e.size]));
-  for (const f of files.slice(0, done)) idx.set(f.name.normalize('NFC'), f.size);
+  for (const [name, size] of saved) idx.set(name, size);
   await idb.set('imgIndex', [...idx]);
   indexImages([...idx].map(([name, size]) => ({ name, size })));
   bar.classList.add('hidden'); bar.firstElementChild.style.width = '0';
   renderSetup(); rerun();
-  if (done === files.length) alert(`${done.toLocaleString()}枚の画像をツールに取り込みました。次回からフォルダの選択は不要です。`);
+  const m = `✔ ${saved.length.toLocaleString()}枚を取り込みました。` + (failed.length ? `読めなかったファイル ${failed.length}件（例：${failed.slice(0, 3).join('、')}）` : '次回からフォルダの選択は不要です。');
+  imgMsg(m, failed.length > 0);
+  if (saved.length) alert(m);
 }
+// 想定外のエラーも設定画面に出す（原因を調べやすくするため）
+window.addEventListener('unhandledrejection', e => { const r = e.reason || {}; imgMsg(`エラー：${r.name || ''} ${r.message || r}`, true); });
+window.addEventListener('error', e => { imgMsg(`エラー：${e.message}`, true); });
 $('#fImages').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; importImages(fs); };
 $('#fImageFiles').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; importImages(fs); };
 async function clearImages() {
